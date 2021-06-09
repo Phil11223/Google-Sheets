@@ -1,0 +1,651 @@
+var spreadsheet = SpreadsheetApp.getActive();
+var sheet = spreadsheet.getActiveSheet();
+var sheets = spreadsheet.getSheets();
+var totalsSheet = spreadsheet.getSheetByName("Totals");
+
+function onOpen() {
+  SpreadsheetApp.getUi()
+    .createMenu('Manager Options')
+    .addItem('Delete Week Tabs', 'DeleteWeekTabs')
+    .addItem('Create Week Tabs', 'CreateWeekTabs')
+    .addToUi();
+}
+
+function CreateWeekTabs() {
+  if (spreadsheet.getSheets().length <= 3) {
+    CREATEWEEKTABS();
+  }
+  else {
+    var response = SpreadsheetApp.getUi().alert("Are you sure?", "It appears there are already week tabs currently created. Do you want to delete all week tabs?", SpreadsheetApp.getUi().ButtonSet.YES_NO);
+
+    switch (response) {
+      case SpreadsheetApp.getUi().Button.YES:
+        DELETEWEEKTABS();
+        Utilities.sleep(10);
+        CREATEWEEKTABS();
+        break;
+      case SpreadsheetApp.getUi().Button.NO:
+        break;
+    }
+  }
+}
+
+function CREATEWEEKTABS() {
+  var response = SpreadsheetApp.getUi().prompt("Please Confirm Start Date", "Please enter the starting date for the weeks tabs with format dd/mm/yyyy", SpreadsheetApp.getUi().ButtonSet.OK_CANCEL);
+
+  if (response.getSelectedButton() == SpreadsheetApp.getUi().Button.OK) {
+    spreadsheet.getSheetByName("Totals").getRange("B1").setValue(response.getResponseText());
+    var StartingWeek = new Date(spreadsheet.getSheetByName("Totals").getRange("B1").getValue());  //Typically always "01 January" shown. Cell Formatting is dd MMMM.   Cell Value is 01/01/2019
+
+    spreadsheet.toast("Please wait...", "Creating Tabs");
+
+    for (var Week = 1; Week <= 52; Week++) {
+      var SecondDate = new Date(StartingWeek);
+      SecondDate.setDate(StartingWeek.getDate() + (7 * Week) - 7);
+      spreadsheet.getSheetByName("Template").copyTo(spreadsheet).setName(Utilities.formatDate(SecondDate, Session.getScriptTimeZone(), "MMM dd"));
+
+      spreadsheet.getSheetByName(Utilities.formatDate(SecondDate, Session.getScriptTimeZone(), "MMM dd")).getRange("B2").setValue(SecondDate);
+    }
+    spreadsheet.toast("All week tabs have been created.", "Completed");
+  }
+}
+
+function DeleteWeekTabs() {
+  var response = SpreadsheetApp.getUi().alert("Are you sure?", "It appears there are already week tabs currently created. Do you want to delete all week tabs?", SpreadsheetApp.getUi().ButtonSet.YES_NO);
+
+  switch (response) {
+    case SpreadsheetApp.getUi().Button.YES:
+      DELETEWEEKTABS()
+      break;
+    case SpreadsheetApp.getUi().Button.NO:
+      break;
+  }
+}
+
+function DELETEWEEKTABS() {
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].getName() != "Totals" && sheets[i].getName() != "Template" && sheets[i].getName() != "Team Performance") {
+      spreadsheet.deleteSheet(sheets[i]);
+    }
+  }
+  spreadsheet.toast("All week tabs have been deleted.", "Completed");
+}
+
+function StartofWeek(StartDate) {
+  var sow = 1;//Sun-0, Sat=6
+  var dt = new Date(StartDate);
+  while (dt.getDay() > 0) {
+    dt = new Date(dt.setDate(dt.getDate() - 1));
+  }
+  dt = new Date(dt.setDate(dt.getDate() + sow));
+  return dt;
+}
+
+
+function GetCurrentWeekSheet() {
+  var totalsSheet = spreadsheet.getSheetByName("Totals");
+  var CurrentColumn = totalsSheet.getActiveCell().getColumn();
+
+  if (totalsSheet.getActiveCell().getRow() == 1) {
+    var DateValue = new Date(totalsSheet.getRange(1, CurrentColumn).getValue());
+    var FormattedDate = Utilities.formatDate(DateValue, spreadsheet.getSpreadsheetTimeZone(), "MMM dd");
+  }
+
+  if (totalsSheet.getRange(2, CurrentColumn).getValue() == "Jeop Needed") {
+    var DateValue = new Date(totalsSheet.getRange(1, CurrentColumn).getValue());
+    var FormattedDate = Utilities.formatDate(DateValue, spreadsheet.getSpreadsheetTimeZone(), "MMM dd");
+  } else {
+    if (totalsSheet.getRange(2, CurrentColumn).getValue() == "Inflight Jeop's") {
+      var DateValue = new Date(totalsSheet.getRange(1, CurrentColumn - 1).getValue());
+      var FormattedDate = Utilities.formatDate(DateValue, spreadsheet.getSpreadsheetTimeZone(), "MMM dd");
+    } else {
+      if (totalsSheet.getRange(2, CurrentColumn).getValue() == "Resolved Jeop's") {
+        var DateValue = new Date(totalsSheet.getRange(1, CurrentColumn - 2).getValue());
+        var FormattedDate = Utilities.formatDate(DateValue, spreadsheet.getSpreadsheetTimeZone(), "MMM dd");
+      } else {
+        if (totalsSheet.getRange(2, CurrentColumn).getValue() == "Comp orders in Trace") {
+          var DateValue = new Date(totalsSheet.getRange(1, CurrentColumn - 3).getValue());
+          var FormattedDate = Utilities.formatDate(DateValue, spreadsheet.getSpreadsheetTimeZone(), "MMM dd");
+        } else {
+          if (totalsSheet.getRange(2, CurrentColumn).getValue() == "Total Late Orders") {
+            var DateValue = new Date(totalsSheet.getRange(1, CurrentColumn - 4).getValue());
+            var FormattedDate = Utilities.formatDate(DateValue, spreadsheet.getSpreadsheetTimeZone(), "MMM dd");
+          }
+        }
+      }
+    }
+  }
+  return FormattedDate;
+}
+
+function GotoWeek() {
+  if (sheet.getActiveCell().getRow() == 1 || (sheet.getActiveCell().getRow() >= 3 && sheet.getActiveCell().getRow() <= 22)) {
+    spreadsheet.getSheetByName(GetCurrentWeekSheet()).activate();
+  } else {
+    Browser.msgBox("Please click inside a week");
+  }
+}
+
+function GotoCurrentWeek() {
+  var currentDate = new Date();
+
+  var CurrentWeekSheetName = StartofWeek(currentDate);
+  CurrentWeekSheetName = Utilities.formatDate(CurrentWeekSheetName, spreadsheet.getSpreadsheetTimeZone(), "MMM dd");
+
+  if (CurrentWeekSheetName != null) {
+    spreadsheet.getSheetByName(CurrentWeekSheetName).activate();
+  } else {
+    Browser.msgBox("Cannot find tab name " + sheetname);
+  }
+}
+
+function GetEmployeeList(format) {
+  var employeeList = [];
+  var splitName = [];
+
+  if (format == "Proper") {
+    //Format will be FIRST NAME SURNAME -Obtains list of employers as written in Totals Sheet
+    employeeList = totalsSheet.getRange("A3:A" + (totalsSheet.getLastRow())).getValues();
+    //Remove Blanks
+    employeeList = employeeList.filter(function RemoveBlanks(element) { if (element != "") { return element; } });
+  } else {
+    //Format will be SURNAME, FIRST NAME. Switch around name format from as written in Totals worksheet.
+    employeeList = totalsSheet.getRange("A3:A" + (totalsSheet.getLastRow())).getValues();
+    //Remove Blanks
+    employeeList = employeeList.filter(function RemoveBlanks(element) { if (element != "") { return element; } });
+
+    for (var personNum in employeeList) {
+      var person = employeeList[personNum].toString();
+      splitName = person.split(" ");
+      if (splitName[2] != null) {
+        employeeList[personNum] = splitName[2] + ", " + splitName[0] + " " + splitName[1];
+      } else {
+        employeeList[personNum] = splitName[1] + ", " + splitName[0];
+      }
+    }
+  }
+  return employeeList;
+}
+
+function ImportData() {
+  var employeeList = GetEmployeeList();
+  var SheetData = SheetData = sheet.getRange(4, 1, sheet.getDataRange().getLastRow() - 3, 2).getValues();
+  var WeeksRow = totalsSheet.getRange(1, 1, 1, totalsSheet.getLastColumn()).getDisplayValues().toString();
+
+  //Get EnteStagnant values including namesList (only first 2 columns)
+
+  //Store current week sheet in variable for later use.
+  var CurrentSheetName = Utilities.formatDate(sheet.getRange("B2").getValue(), spreadsheet.getSpreadsheetTimeZone(), "dd MMMM");
+
+  var CurrentDate = new Date();
+  var CurrentWeek = StartofWeek(CurrentDate);
+  CurrentWeek = Utilities.formatDate(CurrentWeek, spreadsheet.getSpreadsheetTimeZone(), "MMM dd");
+  totalsSheet.activate();
+  //Convert GetDisplayValues (Object at this time) to String; WeeksRow Object contains ALL rows inside WeeksRow[0][0], So we then need to SPLIT this into an array of the same variable then trim empty space which seems to be added to the start of each date.
+  //need to use .replace to get rid of extra string data that .trim places.
+  WeeksRow = WeeksRow.split(",").map(function (s) { return s.trim().replace('\xa0', ' '); });
+
+  var ColumnToSelect = WeeksRow.indexOf(CurrentSheetName);
+
+  //Scroll screen to the correct week by setting .setActiveSelection
+  var WeekSelection = totalsSheet.getRange(1, ColumnToSelect + 10).getA1Notation();
+  totalsSheet.setActiveSelection(WeekSelection);
+
+  //Perform the import
+  for (var Employee = 0; Employee < employeeList.length; Employee++) {
+    for (var i = 0; i < SheetData.length; i++) {
+      if (employeeList[Employee] == SheetData[i][0]) {
+        switch (SheetData[i][1]) {
+          case "Jeop Needed":
+            var CurrentValue = totalsSheet.getRange(Employee + 3, ColumnToSelect + 1).getValue();
+            totalsSheet.getRange(Employee + 3, ColumnToSelect + 1).setValue(CurrentValue += 1);
+            BlinkCell(totalsSheet.getRange(Employee + 3, ColumnToSelect + 1).getA1Notation(), "WHITE");
+            break;
+          case "Inflight Jeop's":
+            var CurrentValue = totalsSheet.getRange(Employee + 3, ColumnToSelect + 2).getValue();
+            totalsSheet.getRange(Employee + 3, ColumnToSelect + 2).setValue(CurrentValue += 1);
+            BlinkCell(totalsSheet.getRange(Employee + 3, ColumnToSelect + 2).getA1Notation(), "WHITE");
+            break;
+          case "Resolved Jeop's":
+            var CurrentValue = totalsSheet.getRange(Employee + 3, ColumnToSelect + 3).getValue();
+            totalsSheet.getRange(Employee + 3, ColumnToSelect + 3).setValue(CurrentValue += 1);
+            BlinkCell(totalsSheet.getRange(Employee + 3, ColumnToSelect + 3).getA1Notation(), "WHITE");
+            break;
+        }
+      }
+    }
+  }
+}
+
+function BlinkCell(CellToFlash, ToColour) {
+  for (var i = 0; i < 2; i++) {
+    if (i == 0) {
+      spreadsheet.getActiveSheet().getRange(CellToFlash).setBackground("LIME");
+      SpreadsheetApp.flush();
+      Utilities.sleep(5);
+    } else {
+      if (ToColour == "WHITE")
+        spreadsheet.getActiveSheet().getRange(CellToFlash).setBackground("WHITE");
+      else {
+        spreadsheet.getActiveSheet().getRange(CellToFlash).setBackground(ToColour)
+      }
+      SpreadsheetApp.flush();
+      Utilities.sleep(5);
+    }
+  }
+}
+
+function onEdit(e) {
+  if (sheet.getName() != "Totals" && sheet.getName() != "Template" && sheet.getActiveRange().getA1Notation() == "B2") {
+    var MoveToSheet = Utilities.formatDate(sheet.getActiveCell().getValue(), spreadsheet.getSpreadsheetTimeZone(), "MMM dd");
+    sheet.getActiveCell().setValue(sheet.getName());
+    spreadsheet.getSheetByName(MoveToSheet).activate();
+  }
+
+  if (sheet.getName() == "Totals" && sheet.getActiveRange().getA1Notation() == "A2") {
+    var totalsSheet = spreadsheet.getSheetByName("Totals");
+    var ColourScale = totalsSheet.getRange(26, 3, 1, 6).getBackgrounds();
+
+    var WeeksRow = totalsSheet.getRange(1, 2, 1, totalsSheet.getLastColumn()).getDisplayValues().toString();
+    //Convert GetDisplayValues (Object at this time) to String; WeeksRow Object contains ALL rows inside WeeksRow[0][0], So we then need to SPLIT this into an array of the same variable then trim empty space which seems to be added to the start of each date.
+    //need to use .replace to get rid of extra string data that .trim places.
+    WeeksRow = WeeksRow.split(",").map(function (s) { return s.trim().replace('\xa0', ' '); });
+    var currentDate = new Date();
+    var StartofCurrentWeek = StartofWeek(currentDate);
+    var CurrentWeek = Utilities.formatDate(StartofCurrentWeek, spreadsheet.getSpreadsheetTimeZone(), "dd MMMM");
+
+    var WeekColumn = WeeksRow.indexOf(CurrentWeek);
+
+    //Scroll screen to the correct week by setting .setActiveSelection
+    var WeekSelection = totalsSheet.getRange(3, WeekColumn + 10).getA1Notation();
+    totalsSheet.setActiveSelection(WeekSelection);
+    var RangeofValues = totalsSheet.getRange(3, WeekColumn + 6, GetEmployeeList().length, 1).getValues();
+
+    if (e.value == "TRUE") {
+      //Find the highest value (number) from list of employees.
+      var FlattenedArray = Array.prototype.concat.apply([], RangeofValues);
+      var HighPoint = Math.max.apply(null, FlattenedArray);
+      var LowPoint = Math.min.apply(null, FlattenedArray);
+      var MidPoint = HighPoint / 2;
+      var Average = Math.floor(totalsSheet.getRange(23, WeekColumn + 6).getValue() / GetEmployeeList().length);
+      var Performance = Math.round((totalsSheet.getRange(23, WeekColumn + 1).getValue() - totalsSheet.getRange(23, WeekColumn + 6).getValue()) / totalsSheet.getRange(23, WeekColumn + 1).getValue() * 100, 0);
+
+      Browser.msgBox("Current Week : \\n---------------------------------------------------------\\nMost Overdue : " + HighPoint + "\\n\\nFewest Overdue : " + LowPoint + "\\n=================================\\nAverage Overdue : " + Average + "\\n\\n__________________________________\\nTeam Performance Since Last Week = " + Performance + "%");
+
+      for (i = 0; i < RangeofValues.length; i++) {
+        var value = RangeofValues[i];
+        if (value == HighPoint) {
+          totalsSheet.getRange(i + 3, 1).setBackground(ColourScale[0][5]);
+          totalsSheet.getRange(i + 3, WeekColumn + 6).setBackground(ColourScale[0][5]);
+        } else if (value == LowPoint) {
+          totalsSheet.getRange(i + 3, 1).setBackground(ColourScale[0][1]);
+          totalsSheet.getRange(i + 3, WeekColumn + 6).setBackground(ColourScale[0][1]);
+        } else if (value == MidPoint) {
+          totalsSheet.getRange(i + 3, 1).setBackground(ColourScale[0][3]);
+          totalsSheet.getRange(i + 3, WeekColumn + 6).setBackground(ColourScale[0][3]);
+        } else if (value > MidPoint) {
+          totalsSheet.getRange(i + 3, 1).setBackground(ColourScale[0][4]);
+          totalsSheet.getRange(i + 3, WeekColumn + 6).setBackground(ColourScale[0][4]);
+        } else if (value < MidPoint) {
+          totalsSheet.getRange(i + 3, 1).setBackground(ColourScale[0][2]);
+          totalsSheet.getRange(i + 3, WeekColumn + 6).setBackground(ColourScale[0][2]);
+        }
+      }
+    } else {
+      if (e.value == "FALSE") {
+        totalsSheet.getRange(3, 1, RangeofValues.length, 1).setBackground(ColourScale[0][0]);
+        totalsSheet.getRange(3, WeekColumn + 6, RangeofValues.length, 1).setBackground("#d5a6bd");
+      }
+    }
+  }
+}
+
+function CalculatePerformance() {
+  var employeeList = GetEmployeeList("Proper");
+
+  //Obtain Array of Weeks (Worksheet namesList)
+  var weekList = totalsSheet.getRange(27, 3, 1, 52).getDisplayValues();
+  //create array to store final results and store list of employees in this array.
+  var finalResults = employeeList;
+
+  //Create allWeekData array to append all week data to - for final calculations later.
+  var allWeekData = [];
+  //run through every week in weekList array
+  for (var weekNum = 0; weekNum <= 1; weekNum++) {
+    //sort the week's orders
+    //  SortOrders(weekList[0][weekNum]);
+    var weekName = weekList[0][weekNum];
+    //Store data from week worksheet (with name weekName) in Array sheetData. -> .filter function removes blank elements(rows).
+    var weeksheetData = spreadsheet.getSheetByName(weekName).getRange(5, 1, spreadsheet.getActiveSheet().getLastRow() - 4, 1).getDisplayValues().filter(function (a) { return a.filter(Boolean).length > 0; });
+    //Append to each item in sheetData - the respective value from column 5 (Order number) - will become column sheetdata[0][0]
+    weeksheetData.map(function (item, index) { return weeksheetData[index][1] = spreadsheet.getSheetByName(weekName).getRange(index + 5, 5).getDisplayValue() });
+
+    //push function adds sheetData array to end of allWeekData array - for use later in final calulations.
+    allWeekData.push(weeksheetData);
+  }
+  //by this point, allWeekData contains the data from every week.
+
+  //for every person in the team...
+  for (var person = 2; person < employeeList.length; person++) {
+
+    //Stores total Orders count
+    finalResults[person][1] = 0;
+    //Stores Stagnant Orders count
+    finalResults[person][2] = 0;
+    //Stores Completed Orders Count
+    finalResults[person][3] = 0;
+
+    var personName = employeeList[person][0];
+    //create personData array to store all the orders for personName
+    var personData = [];
+
+    //for every week in allWeekData array.
+    for (var week = 0; week < allWeekData.length; week++) {
+      //filter (only return) rows in 'week' what are for personName - store in a temporary array tmpArray
+      var tmpArray = allWeekData[week].filter(function (item) { if (item[0] == personName) { return true; } else { return false; } });
+      //push tmpArray into personaData (will contain several arrays for each week - each containing any rows with personName's orders)
+      personData.push(tmpArray);
+    }
+    //by this point personData contains all orders for every week for the given personName
+
+    //create array to store orders that have been found - to use later when comparing the next week to the previous.
+    var alreadyExists = [];
+    for (var week = 0; week < personData.length - 1; week++) {
+      for (row = 0; row < personData[week].length; row++) {
+        //store order number to check against.
+        var orderNumber = allWeekData[week][row][1];
+        //Add one to total Orders array element count
+        finalResults[person][1] += 1;
+
+        for (var r = 0; r < personData[week + 1].length; r++) {
+          if (personData[week + 1][r][1] == orderNumber) {
+            //Add one to stagnant Orders
+            finalResults[person][2] += 1;
+            alreadyExists.push(orderNumber);
+            break;
+          }
+        }
+      }
+    }
+  }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  //Add total orders to First column in array.
+  employeeList[person][1] = totalOrders;
+  //Add Stagnant variable to second column of employeeList array to show number of times in-flight jeop's were stagnant.
+  employeeList[person][2] = stagnant;
+  //Add CompletedOrders variable to Third column of employeeList array to show number of times in-flight jeop's were completed.
+  employeeList[person][3] = completedOrders;
+  //calculate overall performance number of Jeop's removed (CompletedOrders Variable) minus number of jeop's added or stagnant (Stagnant Variable) = performance number.
+  employeeList[person][4] = (totalOrders - completedOrders);
+
+  var PerformSheet = spreadsheet.getSheetByName("Team Performance");
+  PerformSheet.getRange("H1").setValue("Calculating Winner...");
+  PerformSheet.getRange("FirstPlace").setValue("");
+  PerformSheet.getRange("SecondPlace").setValue("");
+  PerformSheet.getRange("ThirdPlace").setValue("");
+  PerformSheet.getRange("I12").setValue("");
+  PerformSheet.getRange("I18").setValue("");
+  PerformSheet.getRange("K12").setValue("");
+  PerformSheet.getRange("K18").setValue("");
+  PerformSheet.getRange("M12").setValue("");
+  PerformSheet.getRange("M18").setValue("");
+  PerformSheet.getRange(1, 1, PerformSheet.getLastRow(), 6).setBackground("#ffffff");
+  PerformSheet.getRange(2, 1, PerformSheet.getLastRow(), 6).setValue("");
+  PerformSheet.activate();
+
+  //Sort The Performance list
+  PerformSheet.getRange(2, 2, employeeList.length, 5).setValues(employeeList);
+  PerformSheet.getRange(2, 2, employeeList.length, 5).activate()
+    .sort([{ column: 6, ascending: false }, { column: 5, ascending: false }]);
+
+
+
+  // f = first, s = second, t = third.  - And Represents Row numbers
+
+  //Find and Colour 1st Place namesList in Table
+  for (var f = 2; f < employeeList.length; f++) {
+    //if next Performance Score value is not equal to the current value of f then we are at second place position.
+    if (PerformSheet.getRange(f, 6).getValue() != PerformSheet.getRange(f + 1, 6).getValue()) {
+      break;
+    }
+  }
+  //By this point value of 'f' is row number of last person in first place position. f+1 is therefore the row for second place position.
+  //Set 1st place background colour
+  //f-1 here is equivelant to number of rows to colour in first place.
+  PerformSheet.getRange(2, 1, f - 1, 6).setBackground("#ffff00");
+  var CongratulationsText = "";
+
+  var namesList = "";
+  //if there is only one first place person. ('==1' here means row 1 in the spreadsheet, since '2' would be row 2 = first row that first place starts.)
+  if ((f - 1 == 1)) {
+    namesList = PerformSheet.getRange(f - 1, 2).getValue();
+    CongratulationsText = PerformSheet.getRange(2, 2).getValue();
+  } else {
+    //there is more than 1 first place person, since f-1 is greater than row 2 in the spreadsheet.
+    for (var i = 2; i < (f + 1); i++) {
+      //if on first run of ther loop (i = 2). Get the first name.
+      if (i == 2) {
+        CongratulationsText = PerformSheet.getRange(i, 2).getValue();
+      } else {
+        CongratulationsText += ", " + PerformSheet.getRange(i, 2).getValue();
+      }
+      namesList += PerformSheet.getRange(i, 2).getValue() + "\n";
+    }
+  }
+  PerformSheet.getRange("FirstPlace").setValue(namesList);
+  PerformSheet.getRange("H1").setValue("Congratulations \n" + CongratulationsText);
+
+
+
+
+  //Colour 2nd Place Employees
+  //By this point value of 'f' is row number of last person in first place position. f+1 is therefore the row for second place position.
+  for (var s = f + 1; s < employeeList.length; s++) {
+    //if s (current position) + 1 is not equal to s then we are at last place in second place position.
+    if (PerformSheet.getRange(s, 6).getValue() != PerformSheet.getRange(s + 1, 6).getValue()) {
+      break;
+    }
+  }
+  //By this point value of 's' is row number of last person in second place position. s+1 is therefore the row for third place position.
+  //Set 2nd place background colour
+  PerformSheet.getRange(f + 1, 1, s - f, 6).setBackground("#efefef");
+  namesList = "";
+  for (i = f + 1; i < (s + 1); i++) {
+    namesList += PerformSheet.getRange(i, 2).getValue() + "\n";
+  }
+  PerformSheet.getRange("SecondPlace").setValue(namesList);
+
+
+
+  //Colour 3rd Place Employees
+  //By this point value of 's' is row number of last person in second place position. s+1 is therefore the row for third place position.
+  for (var t = s + 1; t < employeeList.length; t++) {
+    //if s (current position) + 1 is not equal to s then we are at last place in second place position.
+    if (PerformSheet.getRange(t, 6).getValue() != PerformSheet.getRange(t + 1, 6).getValue()) {
+      break;
+    }
+  }
+  //Set 3rd place background colour
+  PerformSheet.getRange(s + 1, 1, t - s + 1, 6).setBackground("#f6b26b");
+  if ((t - s) > 1) {
+    namesList = "";
+    for (i = s + 1; i <= (t + 1); i++) {
+      namesList += PerformSheet.getRange(i, 2).getValue() + "\n";
+    }
+    PerformSheet.getRange("ThirdPlace").setValue(namesList);
+    namesList.split("\n");
+    if (namesList.length > 1) {
+      for (i = 1; i < namesList.length; i++) {
+        namesList[0] += ", " + namesList[i - 1];
+      }
+    }
+  }
+
+
+
+
+  Utilities.sleep(250);
+  //If There's only 1 person in first place
+  if (f == 2) {
+    PerformSheet.getRange("K12").setValue(PerformSheet.getRange(f, 4).getValue());
+    PerformSheet.getRange("K18").setValue(PerformSheet.getRange(f, 5).getValue());
+    Utilities.sleep(250);
+  } else {
+    //There are multiple values representing First place.
+    PerformSheet.getRange("K12").setValue("Multiple");
+    PerformSheet.getRange("K18").setValue("Multiple");
+  }
+
+  //If There's only 1 person in second place
+  if ((s - f) == 1) {
+    PerformSheet.getRange("I12").setValue(PerformSheet.getRange(s, 4).getValue());
+    PerformSheet.getRange("I18").setValue(PerformSheet.getRange(s, 5).getValue());
+    Utilities.sleep(250);
+  } else {
+    PerformSheet.getRange("I12").setValue("Multiple");
+    PerformSheet.getRange("I18").setValue("Multiple");
+  }
+
+  //If There's only 1 person in third place
+  if ((t - s) == 1) {
+    PerformSheet.getRange("M12").setValue(PerformSheet.getRange(t, 4).getValue());
+    PerformSheet.getRange("M18").setValue(PerformSheet.getRange(t, 5).getValue());
+  } else {
+    PerformSheet.getRange("M12").setValue("Multiple");
+    PerformSheet.getRange("M18").setValue("Multiple");
+  }
+
+
+
+
+  if (PerformSheet.getRange("FirstPlace").getValue() == "") {
+    PerformSheet.getRange("FirstPlace").setValue(PerformSheet.getRange("B2").getValue());
+  } else {
+    PerformSheet.getRange("FirstPlace").setFontColor("#000000");
+  }
+  Utilities.sleep(250);
+
+  if (PerformSheet.getRange("SecondPlace").getValue() == "") {
+    PerformSheet.getRange("SecondPlace").setValue(PerformSheet.getRange("B3").getValue());
+  } else {
+    PerformSheet.getRange("SecondPlace").setFontColor("#000000");
+  }
+  Utilities.sleep(250);
+
+
+  if (PerformSheet.getRange("ThirdPlace").getValue() == "") {
+    PerformSheet.getRange("ThirdPlace").setValue(PerformSheet.getRange("B4").getValue());
+  } else {
+    PerformSheet.getRange("ThirdPlace").setFontColor("#000000");
+  }
+  Utilities.sleep(250);
+
+  if (namesList != "") {
+    PerformSheet.getRange("H2").setValue("Congratulations " + PerformSheet.getRange("FirstPlace").getValue());
+    PerformSheet.getRange("CurrentLeader").setValue(PerformSheet.getRange("FirstPlace").getValue());
+  } else {
+    PerformSheet.getRange("H2").setValue("Congratulations\n" + CongratulationsText);
+    PerformSheet.getRange("CurrentLeader").setValue(CongratulationsText);
+  }
+
+  PerformSheet.getRange("ReportDate").setValue(Utilities.formatDate(new Date(), spreadsheet.getSpreadsheetTimeZone(), "dd MMMM yyyy"));
+  if (PerformSheet.getRange("FirstPlace").getValue() == PerformSheet.getRange("CurrentLeader").getValue()) {
+    var NumberofWeeks = PerformSheet.getRange("R5").getValue();
+    BlinkCell(PerformSheet.getRange(2, 16, 5, 4).getA1Notation(), "#ffe599");
+    Utilities.sleep(50);
+    BlinkCell(PerformSheet.getRange(2, 16, 5, 4).getA1Notation(), "#ffe599");
+    PerformSheet.getRange("R5").setValue(NumberofWeeks + 1);
+  } else {
+    PerformSheet.getRange("R5").setValue(1);
+  }
+
+  function GoHome() {
+    spreadsheet.getSheetByName("Totals").activate();
+  }
+
+  function ScrollToCurrentWeek() {
+    var WeeksRow = totalsSheet.getRange(1, 2, 1, totalsSheet.getLastColumn()).getDisplayValues().toString();
+    //Convert GetDisplayValues (Object at this time) to String; WeeksRow Object contains ALL rows inside WeeksRow[0][0], So we then need to SPLIT this into an array of the same variable then trim empty space which seems to be added to the start of each date.
+    //need to use .replace to get rid of extra string data that .trim places.
+    WeeksRow = WeeksRow.split(",").map(function (s) { return s.trim().replace('\xa0', ' '); });
+    var currentDate = new Date();
+    var CurrentWeek = StartofWeek(currentDate);
+    CurrentWeek = Utilities.formatDate(CurrentWeek, spreadsheet.getSpreadsheetTimeZone(), "dd MMMM");
+    var ColumnToSelect = WeeksRow.indexOf(CurrentWeek);
+    //Scroll screen to the correct week by setting .setActiveSelection
+    var WeekSelection = totalsSheet.getRange(1, ColumnToSelect + 15).getA1Notation();
+    totalsSheet.setActiveSelection(WeekSelection);
+  }
+}
+
+function SortOrders(sheetName) {
+  if (sheetName == null) {
+    //Correct Name format - ensuring it is FIRSTNAME MIDDLE(IF ANY) SURNAME
+    var r = 5;
+    while (r <= spreadsheet.getActiveSheet().getLastRow() && spreadsheet.getActiveSheet().getRange(r, 1).getValue() != "") {
+      spreadsheet.getActiveSheet().getRange(r, 1).setValue(CorrectNameFormat(spreadsheet.getActiveSheet().getRange(r, 1).getDisplayValue()));
+      r++;
+    }
+
+    //Sort The list
+    spreadsheet.getActiveSheet().getRange(5, 1, spreadsheet.getActiveSheet().getLastRow() - 4, 11).activate()
+      .sort({ column: 1, ascending: true });
+    spreadsheet.getRange('A5').activate();
+  } else {
+    //function is being ran as part of CalculatePerformance function.
+    //Correct Name format - ensuring it is FIRSTNAME MIDDLE(IF ANY) SURNAME
+    var r = 5;
+    while (r <= spreadsheet.getSheetByName(sheetName).getLastRow() && spreadsheet.getActiveSheet().getRange(r, 1).getValue() != "") {
+      spreadsheet.getSheetByName(sheetName).getRange(r, 1).setValue(CorrectNameFormat(spreadsheet.getSheetByName(sheetName).getRange(r, 1).getDisplayValue()));
+      r++;
+    }
+
+    spreadsheet.getSheetByName(sheetName).getRange(5, 1, spreadsheet.getSheetByName(sheetName).getLastRow() - 4, 11).activate()
+      .sort({ column: 1, ascending: true });
+  }
+}
+
+function CorrectNameFormat(name) {
+  var nm = name.toString();
+  if (nm.indexOf(",") > -1) {
+    //Remove any commas in name
+    var splitName = nm.split(" ").map(function (s) { return s.trim().replace(',', ''); });
+    if (splitName[2] != null) {
+      return splitName[1] + " " + splitName[2] + " " + splitName[0];
+    } else {
+      return splitName[1] + " " + splitName[0];
+    }
+  } else {
+    return name;
+  }
+}
+
+function FindIssues() {
+  spreadsheet.getRange('A5').activate();
+  spreadsheet.getSelection().getNextDataRange(SpreadsheetApp.Direction.DOWN).activate();
+  var numOfRows = sheet.getActiveRange().getNumRows();
+  var issueCount = 0;
+
+  for (var r = 5; r <= numOfRows; r++) {
+    var cellContent = sheet.getRange(r, 11).getValue().toString().toLowerCase();
+    if (cellContent.includes("bell")) {
+      issueCount += 1;
+    }
+  }
+  Browser.msgBox("Bell was mentioned " + issueCount + " times.");
+
+}
